@@ -1,0 +1,179 @@
+---
+title: "Project_1"
+author: "Aaron Bench"
+date: "March 4, 2019"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+```
+
+## Data Ingestion 
+
+
+```{r, echo=TRUE}
+setwd("C:/Users/aaron/OneDrive/Documents/Data_Science")
+#Ingest data
+
+df <- read.csv("activity.csv")
+
+df$date<- as.Date(df$date)
+
+#create subset, removing missing values
+
+dfs <- subset(df, steps >= 0)  
+
+```
+
+##What is mean total number of steps taken per day?
+
+### 1. Total Number of steps taken per day
+
+```{r echo=TRUE}
+p1 <- ggplot(data=dfs, aes(x=date, y=steps)) + 
+  geom_line (color="#00AFBB", size = 1)
+p1
+```
+This graph shows total staps taken per day (excluding data points with NA values)
+
+### 2. Histogram
+
+```{r, echo=TRUE}
+p2 <- ggplot(data=dfs, aes(x=steps)) + 
+  geom_histogram ( color="#00AFBB", binwidth = 10) + geom_vline(aes(xintercept = mean(steps)), color="red", linetype="dashed", size = 1) +geom_vline(aes(xintercept=median(steps)), color="blue", linetype="dashed", size= 1) + geom_density()
+p2
+
+```
+
+This guy doesn't walk much.  Blue line is the median of 0.  Red line is an average of 37.38
+
+###3. Mean and Median
+
+```{r, echo=TRUE}
+mean(dfs$steps)
+median(dfs$steps)
+
+```
+##What is the average daily activity pattern?
+
+###1. Time Series Plot
+
+```{r echo=TRUE}
+###Average steps  per day
+
+avg <- tapply(dfs$steps, dfs$interval, mean, na.rm=TRUE, simplify=T)
+dfas <- data.frame(interval=as.integer(names(avg)), avg=avg)
+
+
+int_plot <- ggplot(data=dfas, aes(x=interval, y=avg)) + 
+  geom_line (color="#00AFBB", size = 1)
+int_plot
+
+
+
+```
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+###5 minute interval, max average across all days
+
+
+```{r echo=TRUE}
+ms<- max(dfas$avg)
+dfas[dfas$avg == ms,]
+
+```
+####Interval 835 has the max average steps of 206
+
+##Inputting Missing Values 
+
+### 1.Number of missing values 
+
+```{r echo=TRUE}
+sum(is.na(df$steps))
+```
+
+####2304 NA's in steps data
+
+###2-3.Strategy to fill in missing data and create a new data set 
+```{r echo=TRUE}
+
+for (i in 1:length(df$steps)) {  #If NA use mean(steps) else use populated data
+  if(is.na(df$steps[i])) {
+    df$stepsb[i] <- mean(df$steps, na.rm=T)
+  }
+  else {
+    df$stepsb[i] <- df$steps[i]
+  }
+}
+
+
+```
+
+###4.Hostogram of daily steps with populated missing data
+
+```{r echo=TRUE}
+
+dfsum <- aggregate(df$stepsb, by = list(df$date), FUN = sum) #subset of data with days summmed 
+
+names(dfsum)[names(dfsum)=="x"] <- "Total"
+
+names(dfsum)[names(dfsum)=="Group.1"] <- "Date"
+
+mean(df$stepsb)
+
+median(df$stepsb)
+     
+#VS
+
+mean(dfs$steps)
+median(dfs$steps)
+
+hist2 <- ggplot(data = dfsum, aes(Total)) + 
+    geom_histogram(binwidth = 1500, color = "blue") +
+    xlab("Total Number of Steps Taken per Day") +
+    ylab("Count") +
+    ggtitle("Total Steps per Day - mean used to replace NULL values")
+print(hist2)
+
+
+```
+#### When I use average to fill in NULL/NA values, the mean and median do not change from the subset where NA/NULL values are removed.
+
+##Differences in Activity Pattern by week days
+
+###1. Factor Variable for Weekday
+```{r echo=TRUE}
+df$wkday <- ifelse(weekdays(df$date) %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), "W-day", "W-end")
+
+head(df)
+
+```
+###2. Panel plot
+```{r echo=TRUE}
+
+new_df <- (df %>% group_by(interval, wkday) %>% summarise(Mean = mean(stepsb)))
+
+g <- ggplot(new_df, mapping = aes(x = interval, y = Mean)) + geom_line(color="blue") +
+    facet_grid(wkday ~.) + xlab("Interval") + ylab("Mean of Steps") +
+    ggtitle("Weekday VS. Weekend") 
+
+g
+
+g2 <- ggplot(new_df, mapping = aes(x = interval, y = Mean)) + geom_boxplot(outlier.colour="black", outlier.shape=16,
+               outlier.size=2, notch=FALSE, aes(fill = wkday)) 
+g2
+
+```
+####There are differences.
+
+
